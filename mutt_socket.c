@@ -65,7 +65,9 @@ int mutt_socket_open (CONNECTION* conn)
   if (socket_preconnect ())
     return -1;
 
+  mutt_allow_interrupt (1);
   rc = conn->conn_open (conn);
+  mutt_allow_interrupt (0);
 
   dprint (2, (debugfile, "Connected to %s:%d on fd=%d\n",
 	      NONULL (conn->account.host), conn->account.port, conn->fd));
@@ -79,13 +81,42 @@ int mutt_socket_close (CONNECTION* conn)
 
   if (conn->fd < 0)
     dprint (1, (debugfile, "mutt_socket_close: Attempt to close closed connection.\n"));
-  else
+  else {
+    mutt_allow_interrupt (1);
     rc = conn->conn_close (conn);
+    mutt_allow_interrupt (0);
+  }
 
   conn->fd = -1;
   conn->ssf = 0;
   conn->bufpos = 0;
   conn->available = 0;
+
+  return rc;
+}
+
+int mutt_socket_read (CONNECTION* conn, char* buf, size_t len)
+{
+  int rc;
+
+  if (conn->fd < 0)
+  {
+    dprint (1, (debugfile, "mutt_socket_read: attempt to read from closed connection\n"));
+    return -1;
+  }
+
+  mutt_allow_interrupt (1);
+  rc = conn->conn_read (conn, buf, len);
+  mutt_allow_interrupt (0);
+
+  /* EOF */
+  if (rc == 0)
+  {
+    mutt_error (_("Connection to %s closed"), conn->account.host);
+    mutt_sleep (2);
+  }
+  if (rc <= 0)
+    mutt_socket_close (conn);
 
   return rc;
 }
@@ -108,7 +139,11 @@ int mutt_socket_write_d (CONNECTION *conn, const char *buf, int len, int dbg)
 
   while (sent < len)
   {
-    if ((rc = conn->conn_write (conn, buf + sent, len - sent)) < 0)
+    mutt_allow_interrupt (1);
+    rc = conn->conn_write (conn, buf + sent, len - sent);
+    mutt_allow_interrupt (0);
+
+    if (rc < 0)
     {
       dprint (1, (debugfile,
                   "mutt_socket_write: error writing (%s), closing socket\n",
@@ -150,7 +185,11 @@ int mutt_socket_readchar (CONNECTION *conn, char *c)
   if (conn->bufpos >= conn->available)
   {
     if (conn->fd >= 0)
+    {
+      mutt_allow_interrupt (1);
       conn->available = conn->conn_read (conn, conn->inbuf, sizeof (conn->inbuf));
+      mutt_allow_interrupt (0);
+    }
     else
     {
       dprint (1, (debugfile, "mutt_socket_readchar: attempt to read from closed connection.\n"));

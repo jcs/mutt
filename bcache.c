@@ -25,6 +25,7 @@
 #include <errno.h>
 #include <dirent.h>
 #include <stdio.h>
+#include <libgen.h>
 
 #include "mutt.h"
 #include "account.h"
@@ -67,6 +68,7 @@ static int bcache_path(ACCOUNT *account, const char *mailbox, body_cache_t *bcac
   mutt_buffer_printf (dst, "%s/%s%s", MessageCachedir, host, mutt_b2s (path));
   if (*(dst->dptr - 1) != '/')
     mutt_buffer_addch (dst, '/');
+  mutt_buffer_addstr (dst, "cur/", 4);
 
   dprint (3, (debugfile, "bcache_path: path: '%s'\n", mutt_b2s (dst)));
   bcache->path = safe_strdup (mutt_b2s (dst));
@@ -126,6 +128,7 @@ FILE* mutt_bcache_get(body_cache_t *bcache, const char *id)
 FILE* mutt_bcache_put(body_cache_t *bcache, const char *id, int tmp)
 {
   BUFFER *path = NULL;
+  BUFFER *newpath = NULL;
   FILE* fp = NULL;
   char* s = NULL;
   struct stat sb;
@@ -156,6 +159,26 @@ FILE* mutt_bcache_put(body_cache_t *bcache, const char *id, int tmp)
     *s = '/';
     s = strchr (s + 1, '/');
   }
+
+  /* make sure new and tmp dirs exist in parent to be like real maildirs */
+  if ((s = dirname(path))) {
+    s = dirname(s);
+
+    newpath = mutt_buffer_pool_get ();
+    mutt_buffer_printf (newpath, "%s/new", s);
+
+    if (stat (mutt_b2s (newpath), &sb) < 0 &&
+    (errno != ENOENT || mkdir (mutt_b2s (newpath), 0777) < 0))
+      return NULL;
+
+    mutt_buffer_printf (newpath, "%s/tmp", s);
+    if (stat (mutt_b2s (newpath), &sb) < 0 &&
+    (errno != ENOENT || mkdir (mutt_b2s (newpath), 0777) < 0))
+      return NULL;
+
+    mutt_buffer_pool_release (&newpath);
+  } else
+    return NULL;
 
 out:
   dprint (3, (debugfile, "bcache: put: '%s'\n", mutt_b2s (path)));

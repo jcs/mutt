@@ -86,7 +86,6 @@ static sasl_callback_t mutt_sasl_callbacks[5];
 
 static sasl_secret_t *secret_ptr = NULL;
 
-static int mutt_sasl_start (void);
 
 /* callbacks */
 static int mutt_sasl_cb_log (void* context, int priority, const char* message);

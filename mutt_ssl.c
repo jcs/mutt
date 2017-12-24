@@ -648,7 +648,6 @@ static int ssl_negotiate (CONNECTION *conn, sslsockdata* ssldata)
                 SSL_get_version(ssldata->ssl),
                 SSL_get_cipher_version (ssldata->ssl),
                 SSL_get_cipher_name (ssldata->ssl));
-  mutt_sleep (0);
 
   return 0;
 }

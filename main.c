@@ -818,6 +818,32 @@ int main (int argc, char **argv, char **environ)
       }
   }
 
+#ifdef USE_SASL
+  {
+    int ret;
+    if ((ret = mutt_sasl_start()) != SASL_OK) {
+      fprintf(stderr, "%s: mutt_sasl_start: %d\n", argv[0], ret);
+      exit(1);
+    }
+  }
+#endif
+
+#ifdef __OpenBSD__
+#ifdef CRYPT_BACKEND_GPGME
+  if (pledge("stdio rpath wpath cpath flock fattr getpw tty inet dns "
+	    "proc exec sendfd recvfd", NULL) == -1) {
+    fprintf(stderr, "%s: pledge: %s\n", argv[0], strerror(errno));
+    exit(1);
+  }
+#else
+  if (pledge("stdio rpath wpath cpath flock fattr getpw tty inet dns "
+	    "proc exec", NULL) == -1) {
+    fprintf(stderr, "%s: pledge: %s\n", argv[0], strerror(errno));
+    exit(1);
+  }
+#endif /* CRYPT_BACKEND_GPGME */
+#endif
+
   /* collapse remaining argv */
   while (optind < argc)
     argv[nargc++] = argv[optind++];

@@ -1835,8 +1835,10 @@ ci_send_message (int flags,		/* send mode */
       mutt_copy_stream (stdin, tempfp);
 
     if (option (OPTSIGONTOP) && ! (flags & (SENDMAILX|SENDKEY|SENDBATCH))
-	&& Editor && mutt_strcmp (Editor, "builtin") != 0)
+	&& Editor && mutt_strcmp (Editor, "builtin") != 0) {
       append_signature (tempfp);
+      fputs ("\n", tempfp);
+    }
 
     /* include replies/forwarded messages, unless we are given a template */
     if (!tempfile && (ctx || !(flags & (SENDREPLY|SENDFORWARD)))
